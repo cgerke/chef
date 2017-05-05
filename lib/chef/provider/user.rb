@@ -56,6 +56,7 @@ class Chef
         if user_info
           current_resource.uid(user_info.uid)
           current_resource.gid(user_info.gid)
+          current_resource.hidden(user_info.hidden)
           current_resource.home(user_info.dir)
           current_resource.shell(user_info.shell)
           current_resource.password(user_info.passwd)

@@ -125,6 +125,7 @@ user password using shadow hash.")
           if user_info
             current_resource.uid(dscl_get(user_info, :uid))
             current_resource.gid(dscl_get(user_info, :gid))
+            current_resource.hidden(dscl_get(user_info, :hidden))
             current_resource.home(dscl_get(user_info, :home))
             current_resource.shell(dscl_get(user_info, :shell))
             current_resource.comment(dscl_get(user_info, :comment))
@@ -175,6 +176,7 @@ user password using shadow hash.")
           dscl_create_comment
           dscl_set_uid
           dscl_set_gid
+          set_hidden
           dscl_set_home
           dscl_set_shell
         end
@@ -187,6 +189,7 @@ user password using shadow hash.")
           dscl_create_comment if diverged?(:comment)
           dscl_set_uid        if diverged?(:uid)
           dscl_set_gid        if diverged?(:gid)
+          set_hidden          if diverged?(:hidden)
           dscl_set_home       if diverged?(:home)
           dscl_set_shell      if diverged?(:shell)
         end
@@ -285,6 +288,29 @@ user password using shadow hash.")
             new_resource.gid(possible_gid) if possible_gid && possible_gid.match(/^\d+$/)
           end
           run_dscl("create", "/Users/#{new_resource.username}", "PrimaryGroupID", new_resource.gid)
+        end
+
+        #
+        # Hide user account from the login window and users & groups preference pane
+        # without having to resort to a sub 500 uid
+        # (Apple has introduced bugs before that have resulted in sub 500 users being
+        # deleted during major point release system upgrades)
+        # https://support.apple.com/en-au/HT203998
+        # Hide home directory in the Finder without moving from the standard /Users
+        # location in an effort to avoid potential bugs caused by Apple (see above).
+        # 0: visible
+        # 1: dscl hidden
+        # 2: dscl AND Finder hidden
+        def set_hidden
+          ishidden = new_resource.hidden > 0 ? 1 : 0
+          chflags = new_resource.hidden > 1 ? 'hidden' : 'nohidden'
+          # dscl
+          unless ishidden.to_s == current_resource.hidden.to_s
+            run_dscl("create", "/Users/#{new_resource.username}", "IsHidden", ishidden)
+          end
+          # chflags
+          return unless (current_resource.home == new_resource.home) && new_home_exists?
+          shell_out_compact!("chflags", chflags, new_resource.home)
         end
 
         #
